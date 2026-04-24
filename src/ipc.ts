@@ -5,7 +5,23 @@ import { CronExpressionParser } from 'cron-parser';
 
 import { DATA_DIR, IPC_POLL_INTERVAL, TIMEZONE } from './config.js';
 import { AvailableGroup } from './container-runner.js';
-import { createTask, deleteTask, getTaskById, updateTask } from './db.js';
+import {
+  createTask,
+  deleteTask,
+  getTaskById,
+  updateTask,
+  insertAgentConversation,
+  insertAgentRating,
+} from './db.js';
+import {
+  createDelegatedTask,
+  markTaskRunning,
+  markTaskCompleted,
+  markTaskFailed,
+  removeDelegationRequest,
+  writeDelegationResult,
+  getPendingDelegations,
+} from './agent-orchestrator.js';
 import { isValidGroupFolder } from './group-folder.js';
 import { logger } from './logger.js';
 import { RegisteredGroup } from './types.js';
@@ -22,6 +38,12 @@ export interface IpcDeps {
     availableGroups: AvailableGroup[],
     registeredJids: Set<string>,
   ) => void;
+  onDelegateTask?: (
+    taskId: string,
+    agentId: string,
+    prompt: string,
+    context: string,
+  ) => Promise<void>;
 }
 
 let ipcWatcherRunning = false;
@@ -143,6 +165,107 @@ export function startIpcWatcher(deps: IpcDeps): void {
         }
       } catch (err) {
         logger.error({ err, sourceGroup }, 'Error reading IPC tasks directory');
+      }
+    }
+
+    // Process inter-agent conversations
+    const convDir = path.join(ipcBaseDir, '..', 'ipc', '_conversations');
+    try {
+      if (fs.existsSync(convDir)) {
+        const convFiles = fs.readdirSync(convDir).filter((f) => f.endsWith('.json'));
+        for (const file of convFiles) {
+          const filePath = path.join(convDir, file);
+          try {
+            const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+            if (data.type === 'agent_message') {
+              insertAgentConversation({
+                from_agent: data.from_agent,
+                to_agent: data.to_agent,
+                task_id: data.task_id || null,
+                message: data.message,
+                timestamp: data.timestamp,
+                metadata: null,
+              });
+              logger.debug(
+                { from: data.from_agent, to: data.to_agent },
+                'Agent conversation stored',
+              );
+            }
+            fs.unlinkSync(filePath);
+          } catch (err) {
+            logger.error({ file, err }, 'Error processing agent conversation');
+          }
+        }
+      }
+    } catch {
+      // directory doesn't exist yet
+    }
+
+    // Process agent ratings
+    const ratingsDir = path.join(ipcBaseDir, '..', 'ipc', '_ratings');
+    try {
+      if (fs.existsSync(ratingsDir)) {
+        const ratingFiles = fs.readdirSync(ratingsDir).filter((f) => f.endsWith('.json'));
+        for (const file of ratingFiles) {
+          const filePath = path.join(ratingsDir, file);
+          try {
+            const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+            if (data.type === 'rate_task') {
+              insertAgentRating({
+                task_id: data.task_id,
+                agent_id: data.agent_id,
+                rated_by: data.rated_by,
+                score: data.score,
+                feedback: data.feedback || null,
+                criteria: data.criteria || null,
+                timestamp: data.timestamp,
+              });
+              logger.info(
+                { agentId: data.agent_id, score: data.score, taskId: data.task_id },
+                'Agent rating stored',
+              );
+            }
+            fs.unlinkSync(filePath);
+          } catch (err) {
+            logger.error({ file, err }, 'Error processing agent rating');
+          }
+        }
+      }
+    } catch {
+      // directory doesn't exist yet
+    }
+
+    // Process pending delegation requests (from orchestrator -> specialist)
+    if (deps.onDelegateTask) {
+      try {
+        const delegations = getPendingDelegations();
+        for (const del of delegations) {
+          try {
+            createDelegatedTask({
+              agent_id: del.agentId,
+              prompt: del.prompt,
+              context: del.context,
+              delegated_by: 'orchestrator',
+            });
+            markTaskRunning(del.taskId);
+            removeDelegationRequest(del.taskId);
+            await deps.onDelegateTask(
+              del.taskId,
+              del.agentId,
+              del.prompt,
+              del.context,
+            );
+          } catch (err) {
+            logger.error(
+              { taskId: del.taskId, agentId: del.agentId, err },
+              'Error processing delegation',
+            );
+            markTaskFailed(del.taskId, String(err));
+            removeDelegationRequest(del.taskId);
+          }
+        }
+      } catch (err) {
+        logger.error({ err }, 'Error scanning delegations directory');
       }
     }
 

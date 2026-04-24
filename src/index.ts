@@ -3,15 +3,30 @@ import path from 'path';
 
 import {
   AGENT_BACKEND,
+  AGENT_CONTEXT_DIR,
   ASSISTANT_NAME,
   CREDENTIAL_PROXY_PORT,
+  DASHBOARD_PORT,
   IDLE_TIMEOUT,
   POLL_INTERVAL,
   TIMEZONE,
   TRIGGER_PATTERN,
 } from './config.js';
+import {
+  AgentConfig,
+  agentToGroup,
+  generateRoutingContext,
+  loadAllAgents,
+  syncAgentMemory,
+} from './agent-config.js';
+import {
+  markTaskCompleted,
+  markTaskFailed,
+  writeDelegationResult,
+} from './agent-orchestrator.js';
 import { runCliAgent } from './cli-runner.js';
 import { startCredentialProxy } from './credential-proxy.js';
+import { startDashboardServer, DashboardDeps } from './dashboard/server.js';
 import './channels/index.js';
 import {
   getChannelFactory,
@@ -33,6 +48,12 @@ import {
   getAllRegisteredGroups,
   getAllSessions,
   getAllTasks,
+  getAllAgentTasks,
+  getAgentTask,
+  getAgentTasksByAgent,
+  getAgentRatings,
+  getAgentAverageRating,
+  getAgentConversations,
   getMessagesSince,
   getNewMessages,
   getRegisteredGroup,
@@ -479,6 +500,34 @@ function ensureContainerSystemRunning(): void {
   cleanupOrphans();
 }
 
+let loadedAgents: AgentConfig[] = [];
+
+/**
+ * Load agent configs from agents/ and register them as NanoClaw groups.
+ * Skips agents that are already registered. Syncs CLAUDE.md into group dirs.
+ */
+function registerAgents(): void {
+  loadedAgents = loadAllAgents();
+  if (loadedAgents.length === 0) return;
+
+  syncAgentMemory(loadedAgents);
+  fs.mkdirSync(AGENT_CONTEXT_DIR, { recursive: true });
+
+  for (const agent of loadedAgents) {
+    if (registeredGroups[agent.jid]) {
+      logger.debug({ agent: agent.id }, 'Agent already registered');
+      continue;
+    }
+    const group = agentToGroup(agent);
+    registerGroup(agent.jid, group);
+  }
+
+  logger.info(
+    { agents: loadedAgents.map((a) => a.id) },
+    'Agent registration complete',
+  );
+}
+
 async function main(): Promise<void> {
   if (AGENT_BACKEND === 'container') {
     ensureContainerSystemRunning();
@@ -489,6 +538,7 @@ async function main(): Promise<void> {
   initDatabase();
   logger.info('Database initialized');
   loadState();
+  registerAgents();
   restoreRemoteControl();
 
   // Credential proxy is only needed for container mode (injects API keys into containers).
@@ -502,9 +552,11 @@ async function main(): Promise<void> {
   }
 
   // Graceful shutdown handlers
+  let dashboardServer: import('http').Server | null = null;
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutdown signal received');
     proxyServer?.close();
+    dashboardServer?.close();
     await queue.shutdown(10000);
     for (const ch of channels) await ch.disconnect();
     process.exit(0);
@@ -611,9 +663,58 @@ async function main(): Promise<void> {
     await channel.connect();
   }
   if (channels.length === 0) {
-    logger.fatal('No channels connected');
-    process.exit(1);
+    logger.warn('No channels connected — orchestrator will only be accessible via REST API');
   }
+
+  // Start the HTTP dashboard / REST API server
+  const dashboardDeps: DashboardDeps = {
+    getAllAgentTasks: () => getAllAgentTasks(),
+    getAgentTaskById: (id) => getAgentTask(id),
+    getAllAgents: () =>
+      loadedAgents.map((a) => ({
+        id: a.id,
+        name: a.name,
+        description: a.description,
+        skills: a.skills,
+        model: a.model,
+        is_orchestrator: a.is_orchestrator,
+        recentTasks: getAgentTasksByAgent(a.id).slice(0, 10),
+      })),
+    getAgentById: (id) => {
+      const a = loadedAgents.find((ag) => ag.id === id);
+      if (!a) return undefined;
+      return {
+        id: a.id,
+        name: a.name,
+        description: a.description,
+        skills: a.skills,
+        model: a.model,
+        is_orchestrator: a.is_orchestrator,
+        repos: a.repos,
+        recentTasks: getAgentTasksByAgent(a.id).slice(0, 20),
+      };
+    },
+    getAgentRatings: (agentId) => getAgentRatings(agentId),
+    getConversations: () => getAgentConversations(),
+    getDashboardStats: () => {
+      const tasks = getAllAgentTasks();
+      const completed = tasks.filter((t) => t.status === 'completed');
+      return {
+        totalAgents: loadedAgents.length,
+        totalTasks: tasks.length,
+        completedTasks: completed.length,
+        failedTasks: tasks.filter((t) => t.status === 'failed').length,
+        runningTasks: tasks.filter((t) => t.status === 'running').length,
+        averageRating: 0,
+      };
+    },
+    submitTask: async (prompt) => {
+      const taskId = `task-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      logger.info({ taskId, prompt }, 'Task submitted via REST API');
+      return { taskId };
+    },
+  };
+  dashboardServer = startDashboardServer(DASHBOARD_PORT, dashboardDeps);
 
   // Start subsystems (independently of connection handler)
   startSchedulerLoop({
@@ -650,6 +751,37 @@ async function main(): Promise<void> {
     getAvailableGroups,
     writeGroupsSnapshot: (gf, im, ag, rj) =>
       writeGroupsSnapshot(gf, im, ag, rj),
+    onDelegateTask: async (taskId, agentId, prompt, context) => {
+      const agentJid = `agent:${agentId}`;
+      const group = registeredGroups[agentJid];
+      if (!group) {
+        logger.error({ agentId, taskId }, 'Delegation failed: agent not registered');
+        markTaskFailed(taskId, `Agent "${agentId}" is not registered`);
+        writeDelegationResult(taskId, `Error: Agent "${agentId}" not found`);
+        return;
+      }
+
+      const fullPrompt = context
+        ? `${prompt}\n\n--- Context from orchestrator ---\n${context}`
+        : prompt;
+
+      logger.info({ taskId, agentId }, 'Spawning specialist agent for delegation');
+
+      const result = await runAgent(group, fullPrompt, agentJid, async (output) => {
+        if (output.result && output.status === 'success') {
+          const resultText = typeof output.result === 'string'
+            ? output.result
+            : JSON.stringify(output.result);
+          markTaskCompleted(taskId, resultText);
+          writeDelegationResult(taskId, resultText);
+        }
+      });
+
+      if (result === 'error') {
+        markTaskFailed(taskId, 'Agent execution failed');
+        writeDelegationResult(taskId, 'Error: Agent execution failed');
+      }
+    },
   });
   queue.setProcessMessagesFn(processGroupMessages);
   recoverPendingMessages();

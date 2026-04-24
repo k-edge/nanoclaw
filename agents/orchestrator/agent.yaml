@@ -1,0 +1,16 @@
+name: Task Orchestrator
+id: orchestrator
+model: sonnet-4-thinking
+description: >
+  Coordinates work across specialist agents. Analyzes incoming tasks,
+  routes them to the right specialist(s), tracks progress, and synthesizes
+  results. Has elevated privileges to delegate tasks and manage agents.
+
+skills:
+  - task-routing
+  - project-management
+  - code-review
+
+is_orchestrator: true
+timeout: 900000
+max_concurrent: 1

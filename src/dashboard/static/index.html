@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NanoClaw Dashboard</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header>
+    <div class="header-left">
+      <h1>NanoClaw</h1>
+      <span class="badge" id="connection-badge">Connecting…</span>
+    </div>
+    <nav>
+      <button class="nav-btn active" data-tab="overview">Overview</button>
+      <button class="nav-btn" data-tab="tasks">Tasks</button>
+      <button class="nav-btn" data-tab="agents">Agents</button>
+      <button class="nav-btn" data-tab="logs">Live Logs</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Overview Tab -->
+    <section id="tab-overview" class="tab-content active">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-agents">—</div>
+          <div class="stat-label">Agents</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-tasks">—</div>
+          <div class="stat-label">Total Tasks</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-completed">—</div>
+          <div class="stat-label">Completed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-running">—</div>
+          <div class="stat-label">Running</div>
+        </div>
+      </div>
+
+      <h2>Agent Overview</h2>
+      <div class="agents-grid" id="agents-grid"></div>
+    </section>
+
+    <!-- Tasks Tab -->
+    <section id="tab-tasks" class="tab-content">
+      <div class="task-submit">
+        <h2>Submit Task</h2>
+        <form id="task-form">
+          <textarea id="task-prompt" placeholder="Describe the task for the orchestrator…" rows="3"></textarea>
+          <button type="submit">Submit</button>
+        </form>
+      </div>
+
+      <h2>Task History</h2>
+      <div class="task-list" id="task-list"></div>
+    </section>
+
+    <!-- Agents Tab -->
+    <section id="tab-agents" class="tab-content">
+      <div class="agents-detail" id="agents-detail"></div>
+    </section>
+
+    <!-- Live Logs Tab -->
+    <section id="tab-logs" class="tab-content">
+      <div class="log-stream" id="log-stream">
+        <div class="log-entry log-info">Waiting for events…</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>

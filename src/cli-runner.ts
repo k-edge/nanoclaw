@@ -49,14 +49,21 @@ function getCliPreset(): CliPreset {
     return {
       command,
       buildArgs: (prompt, opts) => {
-        // Cursor CLI agent mode — adjust flags for your Cursor version.
-        // Override with AGENT_CLI_EXTRA_ARGS if needed.
-        const args = extra.length > 0 ? [...extra] : ['agent', '--message'];
-        args.push(prompt);
-        if (opts.cwd) args.push('--folder', opts.cwd);
+        const args = [
+          'agent',
+          '-p',
+          prompt,
+          '-f',
+          '--output-format',
+          'stream-json',
+          '--approve-mcps',
+        ];
+        if (opts.sessionId) args.push('--resume', opts.sessionId);
+        if (opts.cwd) args.push('--workspace', opts.cwd);
+        args.push(...extra);
         return args;
       },
-      streaming: false,
+      streaming: true,
     };
   }
 

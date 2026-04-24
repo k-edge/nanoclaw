@@ -1,0 +1,23 @@
+name: Backend Engineer
+id: backend-engineer
+model: sonnet-4-thinking
+description: >
+  Specialist in Kotlin/Java Spring Boot stack. Responsible for the data-api
+  service including REST endpoints, DynamoDB/Iceberg/Timescale integrations,
+  OpenAPI schemas, and Gradle builds.
+
+skills:
+  - kotlin
+  - java
+  - spring-boot
+  - openapi
+  - gradle
+  - dynamodb
+  - rest-api
+
+repos:
+  - path: ~/projects/fp/data-api
+    readonly: false
+
+timeout: 600000
+max_concurrent: 1

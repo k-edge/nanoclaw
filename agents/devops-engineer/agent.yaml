@@ -1,0 +1,25 @@
+name: DevOps Engineer
+id: devops-engineer
+model: sonnet-4-thinking
+description: >
+  Specialist in Terraform, AWS services, and infrastructure as code.
+  Responsible for provisioning and managing the cloud infrastructure
+  across streaming, datalake, API, and ingestion services.
+
+skills:
+  - terraform
+  - aws
+  - infrastructure-as-code
+  - ci-cd
+  - networking
+  - iam
+  - s3
+  - msk
+  - flink-managed
+
+repos:
+  - path: ~/projects/fp/terraform-clm
+    readonly: false
+
+timeout: 600000
+max_concurrent: 1

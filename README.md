@@ -74,6 +74,12 @@ cd nanoclaw
 npm install
 ```
 
+> **Troubleshooting:** If you see a `Could not locate the bindings file` error for `better-sqlite3` after upgrading Node.js, rebuild the native module:
+> ```bash
+> npm rebuild better-sqlite3
+> ```
+> If that doesn't resolve it, do a clean reinstall: `rm -rf node_modules && npm install`
+
 Create a `.env` file (see `.env.example`) and set the backend:
 
 ```bash
@@ -232,7 +238,7 @@ All CLI settings are configured via environment variables in `.env`:
 
 **Claude CLI preset** uses `claude -p` with `--output-format stream-json` for streaming results and `--resume` for session continuity. Each group maintains its own session.
 
-**Cursor CLI preset** uses `cursor agent --message` by default. Override the command and arguments via `AGENT_CLI_COMMAND` and `AGENT_CLI_EXTRA_ARGS` to match your Cursor version.
+**Cursor CLI preset** uses `cursor agent -p` with `--output-format stream-json`, `-f` (force-allow tools), and `--approve-mcps`. Session resumption via `--resume`. Requires Cursor 2.6+ with the `cursor agent` subcommand.
 
 **Custom CLI tool:** Set `AGENT_CLI_COMMAND` to any executable that accepts a prompt and returns text on stdout. Pair with `AGENT_CLI_EXTRA_ARGS` for custom flags.
 

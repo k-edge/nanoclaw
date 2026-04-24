@@ -1,0 +1,28 @@
+name: Data Streaming Engineer
+id: data-streaming-engineer
+model: sonnet-4-thinking
+description: >
+  Specialist in Apache Flink, Kafka, and stream processing pipelines.
+  Responsible for PyFlink jobs, Flink CDC, Glue schema management,
+  and the streaming infrastructure.
+
+skills:
+  - pyflink
+  - apache-flink
+  - kafka
+  - iceberg
+  - aws-glue
+  - python
+  - docker-compose
+  - flink-cdc
+
+repos:
+  - path: ~/projects/fp/franz-data-streaming
+    readonly: false
+  - path: ~/projects/fp/datalake-integration
+    readonly: false
+  - path: ~/projects/fp/franz-glue-catalog-gitops
+    readonly: false
+
+timeout: 900000
+max_concurrent: 1

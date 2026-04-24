@@ -36,6 +36,13 @@ export const SENDER_ALLOWLIST_PATH = path.join(
 export const STORE_DIR = path.resolve(PROJECT_ROOT, 'store');
 export const GROUPS_DIR = path.resolve(PROJECT_ROOT, 'groups');
 export const DATA_DIR = path.resolve(PROJECT_ROOT, 'data');
+export const AGENTS_DIR = path.resolve(PROJECT_ROOT, 'agents');
+export const AGENT_CONTEXT_DIR = path.resolve(DATA_DIR, 'agent-context');
+
+export const DASHBOARD_PORT = parseInt(
+  process.env.DASHBOARD_PORT || '3002',
+  10,
+);
 
 export const CONTAINER_IMAGE =
   process.env.CONTAINER_IMAGE || 'nanoclaw-agent:latest';

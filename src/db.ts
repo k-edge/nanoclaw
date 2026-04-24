@@ -65,6 +65,49 @@ function createSchema(database: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_task_run_logs ON task_run_logs(task_id, run_at);
 
+    CREATE TABLE IF NOT EXISTS agent_conversations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      from_agent TEXT NOT NULL,
+      to_agent TEXT NOT NULL,
+      task_id TEXT,
+      message TEXT NOT NULL,
+      timestamp TEXT NOT NULL,
+      metadata TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_conv_from ON agent_conversations(from_agent);
+    CREATE INDEX IF NOT EXISTS idx_agent_conv_to ON agent_conversations(to_agent);
+    CREATE INDEX IF NOT EXISTS idx_agent_conv_task ON agent_conversations(task_id);
+
+    CREATE TABLE IF NOT EXISTS agent_ratings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id TEXT NOT NULL,
+      agent_id TEXT NOT NULL,
+      rated_by TEXT NOT NULL,
+      score INTEGER NOT NULL,
+      feedback TEXT,
+      criteria TEXT,
+      timestamp TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_ratings_agent ON agent_ratings(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_agent_ratings_task ON agent_ratings(task_id);
+
+    CREATE TABLE IF NOT EXISTS agent_task_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id TEXT NOT NULL UNIQUE,
+      agent_id TEXT NOT NULL,
+      parent_task_id TEXT,
+      prompt TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      result TEXT,
+      delegated_by TEXT,
+      started_at TEXT,
+      completed_at TEXT,
+      duration_ms INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_agent_task_log_agent ON agent_task_log(agent_id);
+    CREATE INDEX IF NOT EXISTS idx_agent_task_log_status ON agent_task_log(status);
+    CREATE INDEX IF NOT EXISTS idx_agent_task_log_parent ON agent_task_log(parent_task_id);
+
     CREATE TABLE IF NOT EXISTS router_state (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
@@ -632,6 +675,212 @@ export function getAllRegisteredGroups(): Record<string, RegisteredGroup> {
     };
   }
   return result;
+}
+
+// --- Agent conversation accessors ---
+
+export interface AgentConversation {
+  id?: number;
+  from_agent: string;
+  to_agent: string;
+  task_id: string | null;
+  message: string;
+  timestamp: string;
+  metadata: string | null;
+}
+
+export function insertAgentConversation(conv: Omit<AgentConversation, 'id'>): void {
+  db.prepare(
+    `INSERT INTO agent_conversations (from_agent, to_agent, task_id, message, timestamp, metadata)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(
+    conv.from_agent,
+    conv.to_agent,
+    conv.task_id,
+    conv.message,
+    conv.timestamp,
+    conv.metadata,
+  );
+}
+
+export function getAgentConversations(
+  agentId?: string,
+  limit = 50,
+): AgentConversation[] {
+  if (agentId) {
+    return db
+      .prepare(
+        `SELECT * FROM agent_conversations
+         WHERE from_agent = ? OR to_agent = ?
+         ORDER BY timestamp DESC LIMIT ?`,
+      )
+      .all(agentId, agentId, limit) as AgentConversation[];
+  }
+  return db
+    .prepare('SELECT * FROM agent_conversations ORDER BY timestamp DESC LIMIT ?')
+    .all(limit) as AgentConversation[];
+}
+
+export function getAgentMessages(
+  toAgent: string,
+  sinceTimestamp?: string,
+): AgentConversation[] {
+  if (sinceTimestamp) {
+    return db
+      .prepare(
+        `SELECT * FROM agent_conversations
+         WHERE to_agent = ? AND timestamp > ?
+         ORDER BY timestamp`,
+      )
+      .all(toAgent, sinceTimestamp) as AgentConversation[];
+  }
+  return db
+    .prepare(
+      `SELECT * FROM agent_conversations
+       WHERE to_agent = ? ORDER BY timestamp DESC LIMIT 50`,
+    )
+    .all(toAgent) as AgentConversation[];
+}
+
+// --- Agent rating accessors ---
+
+export interface AgentRating {
+  id?: number;
+  task_id: string;
+  agent_id: string;
+  rated_by: string;
+  score: number;
+  feedback: string | null;
+  criteria: string | null;
+  timestamp: string;
+}
+
+export function insertAgentRating(rating: Omit<AgentRating, 'id'>): void {
+  db.prepare(
+    `INSERT INTO agent_ratings (task_id, agent_id, rated_by, score, feedback, criteria, timestamp)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    rating.task_id,
+    rating.agent_id,
+    rating.rated_by,
+    rating.score,
+    rating.feedback,
+    rating.criteria,
+    rating.timestamp,
+  );
+}
+
+export function getAgentRatings(agentId: string): AgentRating[] {
+  return db
+    .prepare('SELECT * FROM agent_ratings WHERE agent_id = ? ORDER BY timestamp DESC')
+    .all(agentId) as AgentRating[];
+}
+
+export function getAllRatings(): AgentRating[] {
+  return db
+    .prepare('SELECT * FROM agent_ratings ORDER BY timestamp DESC')
+    .all() as AgentRating[];
+}
+
+export function getAgentAverageRating(agentId: string): number {
+  const row = db
+    .prepare('SELECT AVG(score) as avg_score FROM agent_ratings WHERE agent_id = ?')
+    .get(agentId) as { avg_score: number | null } | undefined;
+  return row?.avg_score ?? 0;
+}
+
+// --- Agent task log accessors ---
+
+export interface AgentTaskEntry {
+  id?: number;
+  task_id: string;
+  agent_id: string;
+  parent_task_id: string | null;
+  prompt: string;
+  status: string;
+  result: string | null;
+  delegated_by: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  duration_ms: number | null;
+}
+
+export function createAgentTask(entry: Omit<AgentTaskEntry, 'id'>): void {
+  db.prepare(
+    `INSERT OR REPLACE INTO agent_task_log
+     (task_id, agent_id, parent_task_id, prompt, status, result, delegated_by, started_at, completed_at, duration_ms)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    entry.task_id,
+    entry.agent_id,
+    entry.parent_task_id,
+    entry.prompt,
+    entry.status,
+    entry.result,
+    entry.delegated_by,
+    entry.started_at,
+    entry.completed_at,
+    entry.duration_ms,
+  );
+}
+
+export function getAgentTask(taskId: string): AgentTaskEntry | undefined {
+  return db
+    .prepare('SELECT * FROM agent_task_log WHERE task_id = ?')
+    .get(taskId) as AgentTaskEntry | undefined;
+}
+
+export function updateAgentTask(
+  taskId: string,
+  updates: Partial<Pick<AgentTaskEntry, 'status' | 'result' | 'started_at' | 'completed_at' | 'duration_ms'>>,
+): void {
+  const fields: string[] = [];
+  const values: unknown[] = [];
+
+  if (updates.status !== undefined) {
+    fields.push('status = ?');
+    values.push(updates.status);
+  }
+  if (updates.result !== undefined) {
+    fields.push('result = ?');
+    values.push(updates.result);
+  }
+  if (updates.started_at !== undefined) {
+    fields.push('started_at = ?');
+    values.push(updates.started_at);
+  }
+  if (updates.completed_at !== undefined) {
+    fields.push('completed_at = ?');
+    values.push(updates.completed_at);
+  }
+  if (updates.duration_ms !== undefined) {
+    fields.push('duration_ms = ?');
+    values.push(updates.duration_ms);
+  }
+
+  if (fields.length === 0) return;
+  values.push(taskId);
+  db.prepare(
+    `UPDATE agent_task_log SET ${fields.join(', ')} WHERE task_id = ?`,
+  ).run(...values);
+}
+
+export function getAllAgentTasks(): AgentTaskEntry[] {
+  return db
+    .prepare('SELECT * FROM agent_task_log ORDER BY started_at DESC')
+    .all() as AgentTaskEntry[];
+}
+
+export function getAgentTasksByAgent(agentId: string): AgentTaskEntry[] {
+  return db
+    .prepare('SELECT * FROM agent_task_log WHERE agent_id = ? ORDER BY started_at DESC')
+    .all(agentId) as AgentTaskEntry[];
+}
+
+export function getAgentTasksByParent(parentTaskId: string): AgentTaskEntry[] {
+  return db
+    .prepare('SELECT * FROM agent_task_log WHERE parent_task_id = ? ORDER BY started_at DESC')
+    .all(parentTaskId) as AgentTaskEntry[];
 }
 
 // --- JSON migration ---

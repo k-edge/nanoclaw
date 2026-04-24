@@ -1,0 +1,26 @@
+name: Data Lake Engineer
+id: data-lake-engineer
+model: sonnet-4-thinking
+description: >
+  Specialist in AWS Athena, Apache Iceberg, dbt, and data modeling.
+  Responsible for denormalized analytics models, Airflow DAGs,
+  and the Glue catalog table definitions.
+
+skills:
+  - aws-athena
+  - apache-iceberg
+  - dbt
+  - sql
+  - airflow
+  - data-modeling
+  - sqlfluff
+  - python
+
+repos:
+  - path: ~/projects/fp/franz-glue-catalog-gitops
+    readonly: false
+  - path: ~/projects/fp/datalake-models-gitops
+    readonly: false
+
+timeout: 600000
+max_concurrent: 1
