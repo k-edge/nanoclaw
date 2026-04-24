@@ -125,10 +125,7 @@ export function writeAgentContext(
   fs.writeFileSync(path.join(dir, key), content, 'utf-8');
 }
 
-export function readAgentContext(
-  taskId: string,
-  key: string,
-): string | null {
+export function readAgentContext(taskId: string, key: string): string | null {
   const filePath = path.join(AGENT_CONTEXT_DIR, taskId, key);
   if (!fs.existsSync(filePath)) return null;
   return fs.readFileSync(filePath, 'utf-8');
@@ -182,7 +179,11 @@ export function writeDelegationResult(taskId: string, result: string): void {
   const tempPath = `${filePath}.tmp`;
   fs.writeFileSync(
     tempPath,
-    JSON.stringify({ taskId, result, timestamp: new Date().toISOString() }, null, 2),
+    JSON.stringify(
+      { taskId, result, timestamp: new Date().toISOString() },
+      null,
+      2,
+    ),
   );
   fs.renameSync(tempPath, filePath);
 }

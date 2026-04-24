@@ -342,8 +342,10 @@ async function runAgent(
     assistantName: ASSISTANT_NAME,
   };
 
-  const onProcess = (proc: import('child_process').ChildProcess, name: string) =>
-    queue.registerProcess(chatJid, proc, name, group.folder);
+  const onProcess = (
+    proc: import('child_process').ChildProcess,
+    name: string,
+  ) => queue.registerProcess(chatJid, proc, name, group.folder);
 
   try {
     const output =
@@ -532,7 +534,10 @@ async function main(): Promise<void> {
   if (AGENT_BACKEND === 'container') {
     ensureContainerSystemRunning();
   } else {
-    logger.info({ backend: AGENT_BACKEND }, 'Using CLI agent backend — skipping container runtime check');
+    logger.info(
+      { backend: AGENT_BACKEND },
+      'Using CLI agent backend — skipping container runtime check',
+    );
   }
 
   initDatabase();
@@ -663,7 +668,9 @@ async function main(): Promise<void> {
     await channel.connect();
   }
   if (channels.length === 0) {
-    logger.warn('No channels connected — orchestrator will only be accessible via REST API');
+    logger.warn(
+      'No channels connected — orchestrator will only be accessible via REST API',
+    );
   }
 
   // Start the HTTP dashboard / REST API server
@@ -755,7 +762,10 @@ async function main(): Promise<void> {
       const agentJid = `agent:${agentId}`;
       const group = registeredGroups[agentJid];
       if (!group) {
-        logger.error({ agentId, taskId }, 'Delegation failed: agent not registered');
+        logger.error(
+          { agentId, taskId },
+          'Delegation failed: agent not registered',
+        );
         markTaskFailed(taskId, `Agent "${agentId}" is not registered`);
         writeDelegationResult(taskId, `Error: Agent "${agentId}" not found`);
         return;
@@ -765,17 +775,26 @@ async function main(): Promise<void> {
         ? `${prompt}\n\n--- Context from orchestrator ---\n${context}`
         : prompt;
 
-      logger.info({ taskId, agentId }, 'Spawning specialist agent for delegation');
+      logger.info(
+        { taskId, agentId },
+        'Spawning specialist agent for delegation',
+      );
 
-      const result = await runAgent(group, fullPrompt, agentJid, async (output) => {
-        if (output.result && output.status === 'success') {
-          const resultText = typeof output.result === 'string'
-            ? output.result
-            : JSON.stringify(output.result);
-          markTaskCompleted(taskId, resultText);
-          writeDelegationResult(taskId, resultText);
-        }
-      });
+      const result = await runAgent(
+        group,
+        fullPrompt,
+        agentJid,
+        async (output) => {
+          if (output.result && output.status === 'success') {
+            const resultText =
+              typeof output.result === 'string'
+                ? output.result
+                : JSON.stringify(output.result);
+            markTaskCompleted(taskId, resultText);
+            writeDelegationResult(taskId, resultText);
+          }
+        },
+      );
 
       if (result === 'error') {
         markTaskFailed(taskId, 'Agent execution failed');

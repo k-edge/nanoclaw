@@ -689,7 +689,9 @@ export interface AgentConversation {
   metadata: string | null;
 }
 
-export function insertAgentConversation(conv: Omit<AgentConversation, 'id'>): void {
+export function insertAgentConversation(
+  conv: Omit<AgentConversation, 'id'>,
+): void {
   db.prepare(
     `INSERT INTO agent_conversations (from_agent, to_agent, task_id, message, timestamp, metadata)
      VALUES (?, ?, ?, ?, ?, ?)`,
@@ -717,7 +719,9 @@ export function getAgentConversations(
       .all(agentId, agentId, limit) as AgentConversation[];
   }
   return db
-    .prepare('SELECT * FROM agent_conversations ORDER BY timestamp DESC LIMIT ?')
+    .prepare(
+      'SELECT * FROM agent_conversations ORDER BY timestamp DESC LIMIT ?',
+    )
     .all(limit) as AgentConversation[];
 }
 
@@ -772,7 +776,9 @@ export function insertAgentRating(rating: Omit<AgentRating, 'id'>): void {
 
 export function getAgentRatings(agentId: string): AgentRating[] {
   return db
-    .prepare('SELECT * FROM agent_ratings WHERE agent_id = ? ORDER BY timestamp DESC')
+    .prepare(
+      'SELECT * FROM agent_ratings WHERE agent_id = ? ORDER BY timestamp DESC',
+    )
     .all(agentId) as AgentRating[];
 }
 
@@ -784,7 +790,9 @@ export function getAllRatings(): AgentRating[] {
 
 export function getAgentAverageRating(agentId: string): number {
   const row = db
-    .prepare('SELECT AVG(score) as avg_score FROM agent_ratings WHERE agent_id = ?')
+    .prepare(
+      'SELECT AVG(score) as avg_score FROM agent_ratings WHERE agent_id = ?',
+    )
     .get(agentId) as { avg_score: number | null } | undefined;
   return row?.avg_score ?? 0;
 }
@@ -832,7 +840,12 @@ export function getAgentTask(taskId: string): AgentTaskEntry | undefined {
 
 export function updateAgentTask(
   taskId: string,
-  updates: Partial<Pick<AgentTaskEntry, 'status' | 'result' | 'started_at' | 'completed_at' | 'duration_ms'>>,
+  updates: Partial<
+    Pick<
+      AgentTaskEntry,
+      'status' | 'result' | 'started_at' | 'completed_at' | 'duration_ms'
+    >
+  >,
 ): void {
   const fields: string[] = [];
   const values: unknown[] = [];
@@ -873,13 +886,17 @@ export function getAllAgentTasks(): AgentTaskEntry[] {
 
 export function getAgentTasksByAgent(agentId: string): AgentTaskEntry[] {
   return db
-    .prepare('SELECT * FROM agent_task_log WHERE agent_id = ? ORDER BY started_at DESC')
+    .prepare(
+      'SELECT * FROM agent_task_log WHERE agent_id = ? ORDER BY started_at DESC',
+    )
     .all(agentId) as AgentTaskEntry[];
 }
 
 export function getAgentTasksByParent(parentTaskId: string): AgentTaskEntry[] {
   return db
-    .prepare('SELECT * FROM agent_task_log WHERE parent_task_id = ? ORDER BY started_at DESC')
+    .prepare(
+      'SELECT * FROM agent_task_log WHERE parent_task_id = ? ORDER BY started_at DESC',
+    )
     .all(parentTaskId) as AgentTaskEntry[];
 }
 

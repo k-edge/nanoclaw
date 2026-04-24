@@ -94,7 +94,4 @@ export const AGENT_CLI_COMMAND = process.env.AGENT_CLI_COMMAND || '';
 export const AGENT_CLI_EXTRA_ARGS = process.env.AGENT_CLI_EXTRA_ARGS || '';
 
 // Timeout for CLI agent invocations (default: 10 minutes)
-export const CLI_TIMEOUT = parseInt(
-  process.env.CLI_TIMEOUT || '600000',
-  10,
-);
+export const CLI_TIMEOUT = parseInt(process.env.CLI_TIMEOUT || '600000', 10);

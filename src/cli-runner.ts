@@ -360,10 +360,7 @@ export async function runCliAgent(
       if (onOutput && result) {
         onOutput({ status: 'success', result, newSessionId: undefined }).then(
           () => {
-            logger.info(
-              { group: group.name, duration },
-              'CLI agent completed',
-            );
+            logger.info({ group: group.name, duration }, 'CLI agent completed');
             resolve({ status: 'success', result: null });
           },
         );

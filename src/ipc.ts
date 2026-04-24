@@ -172,7 +172,9 @@ export function startIpcWatcher(deps: IpcDeps): void {
     const convDir = path.join(ipcBaseDir, '..', 'ipc', '_conversations');
     try {
       if (fs.existsSync(convDir)) {
-        const convFiles = fs.readdirSync(convDir).filter((f) => f.endsWith('.json'));
+        const convFiles = fs
+          .readdirSync(convDir)
+          .filter((f) => f.endsWith('.json'));
         for (const file of convFiles) {
           const filePath = path.join(convDir, file);
           try {
@@ -205,7 +207,9 @@ export function startIpcWatcher(deps: IpcDeps): void {
     const ratingsDir = path.join(ipcBaseDir, '..', 'ipc', '_ratings');
     try {
       if (fs.existsSync(ratingsDir)) {
-        const ratingFiles = fs.readdirSync(ratingsDir).filter((f) => f.endsWith('.json'));
+        const ratingFiles = fs
+          .readdirSync(ratingsDir)
+          .filter((f) => f.endsWith('.json'));
         for (const file of ratingFiles) {
           const filePath = path.join(ratingsDir, file);
           try {
@@ -221,7 +225,11 @@ export function startIpcWatcher(deps: IpcDeps): void {
                 timestamp: data.timestamp,
               });
               logger.info(
-                { agentId: data.agent_id, score: data.score, taskId: data.task_id },
+                {
+                  agentId: data.agent_id,
+                  score: data.score,
+                  taskId: data.task_id,
+                },
                 'Agent rating stored',
               );
             }

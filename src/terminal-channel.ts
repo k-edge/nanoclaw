@@ -45,9 +45,7 @@ function createTerminalChannel(opts: ChannelOpts): Channel | null {
       console.log(
         `\x1b[1m║  NanoClaw Terminal — @${ASSISTANT_NAME.padEnd(18)}║\x1b[0m`,
       );
-      console.log(
-        `\x1b[1m╚══════════════════════════════════════════╝\x1b[0m`,
-      );
+      console.log(`\x1b[1m╚══════════════════════════════════════════╝\x1b[0m`);
       console.log(`  Type your message. Ctrl+C to exit.\n`);
 
       rl.prompt();
@@ -80,7 +78,9 @@ function createTerminalChannel(opts: ChannelOpts): Channel | null {
     },
 
     async sendMessage(_jid: string, text: string) {
-      const cleaned = text.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
+      const cleaned = text
+        .replace(/<internal>[\s\S]*?<\/internal>/g, '')
+        .trim();
       if (!cleaned) return;
 
       console.log(`\n\x1b[33m${ASSISTANT_NAME}\x1b[0m: ${cleaned}`);

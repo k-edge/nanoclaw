@@ -64,7 +64,14 @@ function cors(res: ServerResponse): void {
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const STATIC_DIR = path.join(__dirname, '..', '..', 'src', 'dashboard', 'static');
+const STATIC_DIR = path.join(
+  __dirname,
+  '..',
+  '..',
+  'src',
+  'dashboard',
+  'static',
+);
 
 function serveStatic(res: ServerResponse, urlPath: string): void {
   const safePath = urlPath === '/' ? '/index.html' : urlPath;
@@ -177,13 +184,15 @@ export function startDashboardServer(
         res.writeHead(200, {
           'Content-Type': 'text/event-stream',
           'Cache-Control': 'no-cache',
-          'Connection': 'keep-alive',
+          Connection: 'keep-alive',
           'Access-Control-Allow-Origin': '*',
         });
 
         const client: SseClient = { res, id: nextSseId++ };
         sseClients.push(client);
-        res.write(`event: connected\ndata: ${JSON.stringify({ id: client.id })}\n\n`);
+        res.write(
+          `event: connected\ndata: ${JSON.stringify({ id: client.id })}\n\n`,
+        );
 
         req.on('close', () => {
           sseClients = sseClients.filter((c) => c.id !== client.id);

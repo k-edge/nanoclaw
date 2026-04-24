@@ -56,10 +56,7 @@ export function loadAgent(agentDir: string): AgentConfig | null {
 
     return { ...parsed, folder, claudeMdPath, jid };
   } catch (err) {
-    logger.warn(
-      { dir: agentDir, err },
-      'Failed to load agent config',
-    );
+    logger.warn({ dir: agentDir, err }, 'Failed to load agent config');
     return null;
   }
 }
@@ -144,7 +141,9 @@ export function generateRoutingContext(agents: AgentConfig[]): string {
 
   for (const a of specialists) {
     const skills = a.skills.join(', ');
-    const repos = a.repos.map((r) => path.basename(resolveHome(r.path))).join(', ');
+    const repos = a.repos
+      .map((r) => path.basename(resolveHome(r.path)))
+      .join(', ');
     lines.push(`| ${a.id} | ${skills} | ${repos} |`);
   }
 
